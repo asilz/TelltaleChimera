@@ -1,0 +1,3 @@
+[submodule "extern/hydra"]
+	path = extern/hydra
+	url = git@github.com:asilz/TelltaleHydra.git
