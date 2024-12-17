@@ -1,3 +1,6 @@
 [submodule "extern/hydra"]
 	path = extern/hydra
 	url = git@github.com:asilz/TelltaleHydra.git
+[submodule "extern/imgui"]
+	path = extern/imgui
+	url = git@github.com:ocornut/imgui.git
