@@ -8,3 +8,6 @@
 [submodule "extern/sdl3"]
 	path = extern/sdl3
 	url = git@github.com:libsdl-org/SDL.git
+[submodule "extern/vulkan"]
+	path = extern/vulkan
+	url = git@github.com:KhronosGroup/Vulkan-Loader.git
