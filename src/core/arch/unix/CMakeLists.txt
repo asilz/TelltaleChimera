@@ -1,0 +1,1 @@
+add_subdirectory(${TTC_TARGET_UNIX})

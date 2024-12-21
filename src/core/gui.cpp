@@ -20,6 +20,8 @@
 #include <imgui.h>
 #include <stdio.h>  // printf, fprintf
 #include <stdlib.h> // abort
+#include <ttc/core/file.hpp>
+#include <tth/convert/asset.hpp>
 
 // This example doesn't compile with Emscripten yet! Awaiting SDL3 support.
 #ifdef __EMSCRIPTEN__
@@ -51,6 +53,68 @@ static VkDescriptorPool g_DescriptorPool = VK_NULL_HANDLE;
 static ImGui_ImplVulkanH_Window g_MainWindowData;
 static uint32_t g_MinImageCount = 2;
 static bool g_SwapChainRebuild = false;
+
+void ImGuiSetMaroonTheme()
+{
+    // "Maroon" theme
+    // CC0
+    ImVec4 *colors = ImGui::GetStyle().Colors;
+    colors[ImGuiCol_Text] = ImVec4(0.90f, 0.90f, 0.90f, 1.00f);
+    colors[ImGuiCol_TextDisabled] = ImVec4(0.60f, 0.60f, 0.60f, 1.00f);
+    colors[ImGuiCol_WindowBg] = ImVec4(0.07f, 0.02f, 0.02f, 0.85f);
+    colors[ImGuiCol_ChildBg] = ImVec4(0.00f, 0.00f, 0.00f, 0.00f);
+    colors[ImGuiCol_PopupBg] = ImVec4(0.14f, 0.11f, 0.11f, 0.92f);
+    colors[ImGuiCol_Border] = ImVec4(0.50f, 0.50f, 0.50f, 0.50f);
+    colors[ImGuiCol_BorderShadow] = ImVec4(0.00f, 0.00f, 0.00f, 0.00f);
+    colors[ImGuiCol_FrameBg] = ImVec4(0.43f, 0.43f, 0.43f, 0.39f);
+    colors[ImGuiCol_FrameBgHovered] = ImVec4(0.70f, 0.41f, 0.41f, 0.40f);
+    colors[ImGuiCol_FrameBgActive] = ImVec4(0.75f, 0.48f, 0.48f, 0.69f);
+    colors[ImGuiCol_TitleBg] = ImVec4(0.48f, 0.18f, 0.18f, 0.65f);
+    colors[ImGuiCol_TitleBgActive] = ImVec4(0.52f, 0.12f, 0.12f, 0.87f);
+    colors[ImGuiCol_TitleBgCollapsed] = ImVec4(0.80f, 0.40f, 0.40f, 0.20f);
+    colors[ImGuiCol_MenuBarBg] = ImVec4(0.00f, 0.00f, 0.00f, 0.80f);
+    colors[ImGuiCol_ScrollbarBg] = ImVec4(0.30f, 0.20f, 0.20f, 0.60f);
+    colors[ImGuiCol_ScrollbarGrab] = ImVec4(0.96f, 0.17f, 0.17f, 0.30f);
+    colors[ImGuiCol_ScrollbarGrabHovered] = ImVec4(1.00f, 0.07f, 0.07f, 0.40f);
+    colors[ImGuiCol_ScrollbarGrabActive] = ImVec4(1.00f, 0.36f, 0.36f, 0.60f);
+    colors[ImGuiCol_CheckMark] = ImVec4(0.90f, 0.90f, 0.90f, 0.50f);
+    colors[ImGuiCol_SliderGrab] = ImVec4(1.00f, 1.00f, 1.00f, 0.30f);
+    colors[ImGuiCol_SliderGrabActive] = ImVec4(0.80f, 0.39f, 0.39f, 0.60f);
+    colors[ImGuiCol_Button] = ImVec4(0.71f, 0.18f, 0.18f, 0.62f);
+    colors[ImGuiCol_ButtonHovered] = ImVec4(0.71f, 0.27f, 0.27f, 0.79f);
+    colors[ImGuiCol_ButtonActive] = ImVec4(0.80f, 0.46f, 0.46f, 1.00f);
+    colors[ImGuiCol_Header] = ImVec4(0.56f, 0.16f, 0.16f, 0.45f);
+    colors[ImGuiCol_HeaderHovered] = ImVec4(0.53f, 0.11f, 0.11f, 1.00f);
+    colors[ImGuiCol_HeaderActive] = ImVec4(0.87f, 0.53f, 0.53f, 0.80f);
+    colors[ImGuiCol_Separator] = ImVec4(0.50f, 0.50f, 0.50f, 0.60f);
+    colors[ImGuiCol_SeparatorHovered] = ImVec4(0.60f, 0.60f, 0.70f, 1.00f);
+    colors[ImGuiCol_SeparatorActive] = ImVec4(0.70f, 0.70f, 0.90f, 1.00f);
+    colors[ImGuiCol_ResizeGrip] = ImVec4(1.00f, 1.00f, 1.00f, 0.10f);
+    colors[ImGuiCol_ResizeGripHovered] = ImVec4(0.78f, 0.82f, 1.00f, 0.60f);
+    colors[ImGuiCol_ResizeGripActive] = ImVec4(0.78f, 0.82f, 1.00f, 0.90f);
+    colors[ImGuiCol_TabHovered] = ImVec4(0.68f, 0.21f, 0.21f, 0.80f);
+    colors[ImGuiCol_Tab] = ImVec4(0.47f, 0.12f, 0.12f, 0.79f);
+    colors[ImGuiCol_TabSelected] = ImVec4(0.68f, 0.21f, 0.21f, 1.00f);
+    colors[ImGuiCol_TabSelectedOverline] = ImVec4(0.95f, 0.84f, 0.84f, 0.40f);
+    colors[ImGuiCol_TabDimmed] = ImVec4(0.00f, 0.00f, 0.00f, 0.83f);
+    colors[ImGuiCol_TabDimmedSelected] = ImVec4(0.00f, 0.00f, 0.00f, 0.83f);
+    colors[ImGuiCol_TabDimmedSelectedOverline] = ImVec4(0.55f, 0.23f, 0.23f, 1.00f);
+    colors[ImGuiCol_PlotLines] = ImVec4(1.00f, 1.00f, 1.00f, 1.00f);
+    colors[ImGuiCol_PlotLinesHovered] = ImVec4(0.90f, 0.70f, 0.00f, 1.00f);
+    colors[ImGuiCol_PlotHistogram] = ImVec4(0.90f, 0.70f, 0.00f, 1.00f);
+    colors[ImGuiCol_PlotHistogramHovered] = ImVec4(1.00f, 0.60f, 0.00f, 1.00f);
+    colors[ImGuiCol_TableHeaderBg] = ImVec4(0.56f, 0.16f, 0.16f, 0.45f);
+    colors[ImGuiCol_TableBorderStrong] = ImVec4(0.68f, 0.21f, 0.21f, 0.80f);
+    colors[ImGuiCol_TableBorderLight] = ImVec4(0.26f, 0.26f, 0.28f, 1.00f);
+    colors[ImGuiCol_TableRowBg] = ImVec4(0.00f, 0.00f, 0.00f, 0.00f);
+    colors[ImGuiCol_TableRowBgAlt] = ImVec4(1.00f, 1.00f, 1.00f, 0.07f);
+    colors[ImGuiCol_TextSelectedBg] = ImVec4(1.00f, 0.00f, 0.00f, 0.35f);
+    colors[ImGuiCol_DragDropTarget] = ImVec4(1.00f, 1.00f, 0.00f, 0.90f);
+    colors[ImGuiCol_NavHighlight] = ImVec4(0.45f, 0.45f, 0.90f, 0.80f);
+    colors[ImGuiCol_NavWindowingHighlight] = ImVec4(1.00f, 1.00f, 1.00f, 0.70f);
+    colors[ImGuiCol_NavWindowingDimBg] = ImVec4(0.80f, 0.80f, 0.80f, 0.20f);
+    colors[ImGuiCol_ModalWindowDimBg] = ImVec4(0.20f, 0.20f, 0.20f, 0.35f);
+}
 
 static void check_vk_result(VkResult err)
 {
@@ -438,7 +502,8 @@ int run()
     io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;  // Enable Gamepad Controls
 
     // Setup Dear ImGui style
-    ImGui::StyleColorsDark();
+    // ImGui::StyleColorsDark();
+    ImGuiSetMaroonTheme();
     // ImGui::StyleColorsLight();
 
     // Setup Platform/Renderer backends
@@ -475,11 +540,12 @@ int run()
     // io.Fonts->AddFontFromFileTTF("../../misc/fonts/Cousine-Regular.ttf", 15.0f);
     // ImFont* font = io.Fonts->AddFontFromFileTTF("c:\\Windows\\Fonts\\ArialUni.ttf", 18.0f, nullptr, io.Fonts->GetGlyphRangesJapanese());
     // IM_ASSERT(font != nullptr);
-
-    // Our state
-    bool show_demo_window = true;
-    bool show_another_window = false;
     ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
+
+    char d3dmeshFilePath[1024] = {0};
+    char skeletonFilePath[1024] = {0};
+    char animationFilePath[1024] = {0};
+    const char *conversionResult = "Waiting for conversion";
 
     // Main loop
     bool done = false;
@@ -521,40 +587,81 @@ int run()
         ImGui_ImplSDL3_NewFrame();
         ImGui::NewFrame();
 
-        // 1. Show the big demo window (Most of the sample code is in ImGui::ShowDemoWindow()! You can browse its code to learn more about Dear ImGui!).
-        if (show_demo_window)
-            ImGui::ShowDemoWindow(&show_demo_window);
-
         // 2. Show a simple window that we create ourselves. We use a Begin/End pair to create a named window.
         {
-            static float f = 0.0f;
-            static int counter = 0;
+            ImGui::Begin("Converter"); // Create a window called "Hello, world!" and append into it.
 
-            ImGui::Begin("Hello, world!"); // Create a window called "Hello, world!" and append into it.
+            ImGui::Text("Convert skl+animation+d3dmesh"); // Display some text (you can use a format strings too)
 
-            ImGui::Text("This is some useful text.");          // Display some text (you can use a format strings too)
-            ImGui::Checkbox("Demo Window", &show_demo_window); // Edit bools storing our window open/close state
-            ImGui::Checkbox("Another Window", &show_another_window);
+            if (ImGui::Button("Open file")) // Buttons return true when clicked (most widgets return true when edited/activated)
+            {
+                char filePath[1024];
+                GetFilePath(filePath, sizeof(filePath));
+                char *c;
+                for (c = filePath + strnlen(filePath, sizeof(filePath)); *c != '.' && c != filePath; --c)
+                {
+                }
+                if (memcmp(c, ".d3dmesh", sizeof(".d3dmesh")) == 0)
+                {
+                    strncpy(d3dmeshFilePath, filePath, sizeof(filePath));
+                }
+                else if (memcmp(c, ".skl", sizeof(".skl")) == 0)
+                {
+                    strncpy(skeletonFilePath, filePath, sizeof(filePath));
+                }
+                else if (memcmp(c, ".anm", sizeof(".anm")) == 0)
+                {
+                    strncpy(animationFilePath, filePath, sizeof(filePath));
+                }
+            }
 
-            ImGui::SliderFloat("float", &f, 0.0f, 1.0f);             // Edit 1 float using a slider from 0.0f to 1.0f
-            ImGui::ColorEdit3("clear color", (float *)&clear_color); // Edit 3 floats representing a color
+            ImGui::Text("%s", d3dmeshFilePath);
+            ImGui::Text("%s", skeletonFilePath);
+            ImGui::Text("%s", animationFilePath);
 
-            if (ImGui::Button("Button")) // Buttons return true when clicked (most widgets return true when edited/activated)
-                counter++;
-            ImGui::SameLine();
-            ImGui::Text("counter = %d", counter);
+            if (ImGui::Button("Convert"))
+            {
+                if (*d3dmeshFilePath && *skeletonFilePath && *animationFilePath)
+                {
+                    TTH::Animation animation;
+                    TTH::D3DMesh d3dmesh;
+                    TTH::Skeleton skeleton;
+                    {
+                        TTH::Stream d3dmeshStream = TTH::Stream(d3dmeshFilePath, "rb");
+                        TTH::Stream skeletonStream = TTH::Stream(skeletonFilePath, "rb");
+                        TTH::Stream animationStream = TTH::Stream(animationFilePath, "rb");
+                        animationStream.SeekMetaHeaderEnd();
+                        d3dmeshStream.SeekMetaHeaderEnd();
+                        skeletonStream.SeekMetaHeaderEnd();
+
+                        animation.Read(animationStream, false);
+                        d3dmesh.Read(d3dmeshStream, false);
+                        skeleton.Read(skeletonStream, false);
+                    }
+
+                    char resultPath[1024];
+                    GetFilePath(resultPath, sizeof(resultPath));
+
+                    TTH::errno_t err = TTH::ExportAsset(resultPath, skeleton, animation, d3dmesh);
+
+                    if (err < 0)
+                    {
+                        conversionResult = "Conversion failed";
+                    }
+                    else
+                    {
+                        conversionResult = "Conversion successful";
+                    }
+                }
+                else
+                {
+                    conversionResult = "Not all files are selected";
+                }
+            }
+
+            ImGui::Text("%s", conversionResult);
 
             ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / io.Framerate, io.Framerate);
-            ImGui::End();
-        }
-
-        // 3. Show another simple window.
-        if (show_another_window)
-        {
-            ImGui::Begin("Another Window", &show_another_window); // Pass a pointer to our bool variable (the window will have a closing button that will clear the bool when clicked)
-            ImGui::Text("Hello from another window!");
-            if (ImGui::Button("Close Me"))
-                show_another_window = false;
             ImGui::End();
         }
 
