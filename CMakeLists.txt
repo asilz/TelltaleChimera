@@ -12,4 +12,4 @@ add_subdirectory(src)
 add_subdirectory(extern)
 
 target_compile_options(chimera PRIVATE -Wall)
-target_include_directories(chimera PUBLIC include)
+target_include_directories(chimera PRIVATE include)
