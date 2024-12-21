@@ -30,7 +30,7 @@ include_directories(${IMGUI_DIR} ${IMGUI_DIR}/backends ..)
 #find_package(Vulkan REQUIRED)
 #find_library(VULKAN_LIBRARY
   #NAMES vulkan vulkan-1)
-set(LIBRARIES "SDL3-shared;vulkan")
+set(LIBRARIES "SDL3-shared;vulkan;Vulkan-Headers")
 
 file(GLOB sources ${IMGUI_DIR}/*.cpp)
 
