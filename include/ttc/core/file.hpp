@@ -1,3 +1,4 @@
 #include <cstdio>
 
-int GetFilePath(char *buf, size_t maxLength);
+int FileBrowsePath(char *buf, size_t maxLength);
+int FileSavePath(char *buf, size_t maxLength);

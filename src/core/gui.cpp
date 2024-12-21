@@ -589,14 +589,14 @@ int run()
 
         // 2. Show a simple window that we create ourselves. We use a Begin/End pair to create a named window.
         {
-            ImGui::Begin("Converter"); // Create a window called "Hello, world!" and append into it.
+            ImGui::Begin("Converter");
 
             ImGui::Text("Convert skl+animation+d3dmesh"); // Display some text (you can use a format strings too)
 
             if (ImGui::Button("Open file")) // Buttons return true when clicked (most widgets return true when edited/activated)
             {
                 char filePath[1024];
-                GetFilePath(filePath, sizeof(filePath));
+                FileBrowsePath(filePath, sizeof(filePath));
                 char *c;
                 for (c = filePath + strnlen(filePath, sizeof(filePath)); *c != '.' && c != filePath; --c)
                 {
@@ -640,9 +640,9 @@ int run()
                     }
 
                     char resultPath[1024];
-                    GetFilePath(resultPath, sizeof(resultPath));
+                    FileSavePath(resultPath, sizeof(resultPath));
 
-                    TTH::errno_t err = TTH::ExportAsset(resultPath, skeleton, animation, d3dmesh);
+                    TTH::errno_t err = TTH::ExportAsset(resultPath, skeleton, &animation, &d3dmesh, 1, 1);
 
                     if (err < 0)
                     {

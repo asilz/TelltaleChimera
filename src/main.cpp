@@ -21,25 +21,63 @@ void LogCallback(int error_code, const char *description) { TTH_LOG_ERROR("%d %s
 
 int main(void)
 {
-    return run();
+    // return run();
 
-    Stream streamMesh = Stream("/home/asil/Documents/decryption/TelltaleDevTool/cipherTexts/d3dmesh/sk61_javier_bodyUpper.d3dmesh", "rb");
-    streamMesh.SeekMetaHeaderEnd();
-
-    D3DMesh mesh;
-    mesh.Read(streamMesh, false);
-
-    Stream streamAnimation = Stream("/home/asil/Documents/decryption/TelltaleDevTool/cipherTexts/animation/sk61_javierAction_toStandA.anm", "rb");
     Stream stream = Stream("/home/asil/Documents/decryption/TelltaleDevTool/cipherTexts/skl/sk61_javier.skl", "rb");
     stream.SeekMetaHeaderEnd();
-    streamAnimation.SeekMetaHeaderEnd();
-
     Skeleton skeleton;
     skeleton.Read(stream, false);
 
-    Animation animation;
-    animation.Read(streamAnimation, false);
+    Animation animation[4];
+    {
+        Stream streamAnimation = Stream("/home/asil/Documents/decryption/TelltaleDevTool/cipherTexts/animation/sk61_javierAction_toStandA.anm", "rb");
+        streamAnimation.SeekMetaHeaderEnd();
+        animation[0].Read(streamAnimation, false);
+    }
 
-    errno_t err = ExportAsset("assimTWD.glb", skeleton, animation, mesh);
+    {
+        Stream streamAnimation = Stream("/home/asil/Documents/decryption/TelltaleDevTool/cipherTexts/animation/sk61_javier_walkTenseAimPistol.anm", "rb");
+        streamAnimation.SeekMetaHeaderEnd();
+        animation[1].Read(streamAnimation, false);
+    }
+
+    {
+        Stream streamAnimation = Stream("/home/asil/Documents/decryption/TelltaleDevTool/cipherTexts/animation/sk61_javierStandA_toSit.anm", "rb");
+        streamAnimation.SeekMetaHeaderEnd();
+        animation[2].Read(streamAnimation, false);
+    }
+
+    {
+        Stream streamAnimation = Stream("/home/asil/Documents/decryption/TelltaleDevTool/cipherTexts/animation/sk61_javierSlide.anm", "rb");
+        streamAnimation.SeekMetaHeaderEnd();
+        animation[3].Read(streamAnimation, false);
+    }
+
+    D3DMesh mesh[4];
+    {
+        Stream streamMesh = Stream("/home/asil/Documents/decryption/TelltaleDevTool/cipherTexts/d3dmesh/sk61_javier_bodyLower.d3dmesh", "rb");
+        streamMesh.SeekMetaHeaderEnd();
+        mesh[0].Read(streamMesh, false);
+    }
+
+    {
+        Stream streamMesh = Stream("/home/asil/Documents/decryption/TelltaleDevTool/cipherTexts/d3dmesh/sk61_javier_bodyUpper.d3dmesh", "rb");
+        streamMesh.SeekMetaHeaderEnd();
+        mesh[1].Read(streamMesh, false);
+    }
+
+    {
+        Stream streamMesh = Stream("/home/asil/Documents/decryption/TelltaleDevTool/cipherTexts/d3dmesh/sk61_javier_eyesMouth.d3dmesh", "rb");
+        streamMesh.SeekMetaHeaderEnd();
+        mesh[2].Read(streamMesh, false);
+    }
+
+    {
+        Stream streamMesh = Stream("/home/asil/Documents/decryption/TelltaleDevTool/cipherTexts/d3dmesh/sk61_javier_head.d3dmesh", "rb");
+        streamMesh.SeekMetaHeaderEnd();
+        mesh[3].Read(streamMesh, false);
+    }
+
+    errno_t err = ExportAsset("assimpTWD.glb", skeleton, animation, mesh, 4, 4);
     return 0;
 }
