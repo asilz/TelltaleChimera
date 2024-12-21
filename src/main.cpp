@@ -1,5 +1,3 @@
-
-#include <GLFW/glfw3.h>
 #include <cerrno>
 #include <cstdio>
 #include <ttc/core/gui.hpp>
