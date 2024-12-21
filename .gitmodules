@@ -11,3 +11,6 @@
 [submodule "extern/vulkan"]
 	path = extern/vulkan
 	url = git@github.com:KhronosGroup/Vulkan-Loader.git
+[submodule "extern/vulkan-headers"]
+	path = extern/vulkan-headers
+	url = git@github.com:KhronosGroup/Vulkan-Headers.git
