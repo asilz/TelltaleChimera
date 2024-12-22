@@ -17,11 +17,9 @@
 
 using namespace TTH;
 
-void LogCallback(int error_code, const char *description) { TTH_LOG_ERROR("%d %s\n", error_code, description); }
-
 int main(void)
 {
-    // return run();
+    return run();
 
     Stream stream = Stream("/home/asil/Documents/decryption/TelltaleDevTool/cipherTexts/skl/sk61_javier.skl", "rb");
     stream.SeekMetaHeaderEnd();

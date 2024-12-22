@@ -17,7 +17,9 @@
 #include <SDL3/SDL_vulkan.h>
 #include <backends/imgui_impl_sdl3.h>
 #include <backends/imgui_impl_vulkan.h>
+#include <cinttypes>
 #include <imgui.h>
+#include <list>
 #include <stdio.h>  // printf, fprintf
 #include <stdlib.h> // abort
 #include <ttc/core/file.hpp>
@@ -542,10 +544,10 @@ int run()
     // IM_ASSERT(font != nullptr);
     ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
 
-    char d3dmeshFilePath[1024] = {0};
-    char skeletonFilePath[1024] = {0};
-    char animationFilePath[1024] = {0};
-    const char *conversionResult = "Waiting for conversion";
+    std::vector<TTH::Animation> animationList;
+    std::vector<TTH::D3DMesh> d3dmeshList;
+    TTH::Skeleton skeleton;
+    const char *conversionResult = "\0";
 
     // Main loop
     bool done = false;
@@ -597,52 +599,76 @@ int run()
             {
                 char filePath[1024];
                 FileBrowsePath(filePath, sizeof(filePath));
+                TTH::Stream stream = TTH::Stream(filePath, "rb");
+                stream.SeekMetaHeaderEnd();
                 char *c;
                 for (c = filePath + strnlen(filePath, sizeof(filePath)); *c != '.' && c != filePath; --c)
                 {
                 }
                 if (memcmp(c, ".d3dmesh", sizeof(".d3dmesh")) == 0)
                 {
-                    strncpy(d3dmeshFilePath, filePath, sizeof(filePath));
+                    d3dmeshList.resize(d3dmeshList.size() + 1);
+                    d3dmeshList[d3dmeshList.size() - 1].Read(stream, false);
                 }
                 else if (memcmp(c, ".skl", sizeof(".skl")) == 0)
                 {
-                    strncpy(skeletonFilePath, filePath, sizeof(filePath));
+                    skeleton.Read(stream, false);
                 }
                 else if (memcmp(c, ".anm", sizeof(".anm")) == 0)
                 {
-                    strncpy(animationFilePath, filePath, sizeof(filePath));
+                    animationList.resize(animationList.size() + 1);
+                    animationList[animationList.size() - 1].Read(stream, false);
                 }
             }
 
-            ImGui::Text("%s", d3dmeshFilePath);
-            ImGui::Text("%s", skeletonFilePath);
-            ImGui::Text("%s", animationFilePath);
+            for (std::vector<TTH::D3DMesh>::iterator it = d3dmeshList.begin(); it != d3dmeshList.end();)
+            {
+
+                ImGui::Text("%s", it->mName.c_str());
+                ImGui::SameLine();
+                char buttonCode[128];
+                snprintf(buttonCode, sizeof(buttonCode), "Remove##%s", it->mName.c_str());
+                if (ImGui::Button(buttonCode))
+                {
+                    d3dmeshList.erase(it);
+                }
+                else
+                {
+                    ++it;
+                }
+            }
+
+            for (std::vector<TTH::Animation>::iterator it = animationList.begin(); it != animationList.end();)
+            {
+                ImGui::Text("%" PRIX64, it->mName.mCrc64);
+                ImGui::SameLine();
+                char buttonCode[128];
+                snprintf(buttonCode, sizeof(buttonCode), "Remove##%" PRIX64, it->mName.mCrc64);
+
+                if (ImGui::Button(buttonCode))
+                {
+                    animationList.erase(it);
+                }
+                else
+                {
+                    ++it;
+                }
+            }
+
+            if (!skeleton.mEntries.empty())
+            {
+                ImGui::Text("Skeleton imported");
+            }
 
             if (ImGui::Button("Convert"))
             {
-                if (*d3dmeshFilePath && *skeletonFilePath && *animationFilePath)
+                if (!skeleton.mEntries.empty())
                 {
-                    TTH::Animation animation;
-                    TTH::D3DMesh d3dmesh;
-                    TTH::Skeleton skeleton;
-                    {
-                        TTH::Stream d3dmeshStream = TTH::Stream(d3dmeshFilePath, "rb");
-                        TTH::Stream skeletonStream = TTH::Stream(skeletonFilePath, "rb");
-                        TTH::Stream animationStream = TTH::Stream(animationFilePath, "rb");
-                        animationStream.SeekMetaHeaderEnd();
-                        d3dmeshStream.SeekMetaHeaderEnd();
-                        skeletonStream.SeekMetaHeaderEnd();
-
-                        animation.Read(animationStream, false);
-                        d3dmesh.Read(d3dmeshStream, false);
-                        skeleton.Read(skeletonStream, false);
-                    }
 
                     char resultPath[1024];
                     FileSavePath(resultPath, sizeof(resultPath));
 
-                    TTH::errno_t err = TTH::ExportAsset(resultPath, skeleton, &animation, &d3dmesh, 1, 1);
+                    TTH::errno_t err = TTH::ExportAsset(resultPath, skeleton, animationList.data(), d3dmeshList.data(), animationList.size(), d3dmeshList.size());
 
                     if (err < 0)
                     {
@@ -655,7 +681,7 @@ int run()
                 }
                 else
                 {
-                    conversionResult = "Not all files are selected";
+                    conversionResult = "Cannot convert without a skeleton!";
                 }
             }
 
