@@ -13,7 +13,7 @@ int FileBrowsePath(char *buf, size_t maxLength)
     open.lpstrTitle = "Select a .skl, .anm or .d3dmesh file\0";
     open.nMaxFileTitle = strlen(open.lpstrTitle);
     open.Flags = OFN_PATHMUSTEXIST | OFN_FILEMUSTEXIST | OFN_EXPLORER;
-    return GetOpenFileName(&open);
+    return !GetOpenFileName(&open);
 }
 int FileSavePath(char *buf, size_t maxLength)
 {
@@ -27,5 +27,5 @@ int FileSavePath(char *buf, size_t maxLength)
     open.lpstrTitle = "Save a .glb file\0";
     open.nMaxFileTitle = strlen(open.lpstrTitle);
     open.Flags = OFN_PATHMUSTEXIST | OFN_FILEMUSTEXIST | OFN_EXPLORER;
-    return GetSaveFileName(&open);
+    return !GetSaveFileName(&open);
 }

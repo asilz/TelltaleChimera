@@ -598,26 +598,30 @@ int run()
             if (ImGui::Button("Open file")) // Buttons return true when clicked (most widgets return true when edited/activated)
             {
                 char filePath[1024];
-                FileBrowsePath(filePath, sizeof(filePath));
-                TTH::Stream stream = TTH::Stream(filePath, "rb");
-                stream.SeekMetaHeaderEnd();
-                char *c;
-                for (c = filePath + strnlen(filePath, sizeof(filePath)); *c != '.' && c != filePath; --c)
+                int err = FileBrowsePath(filePath, sizeof(filePath));
+                if (err == 0)
                 {
-                }
-                if (memcmp(c, ".d3dmesh", sizeof(".d3dmesh")) == 0)
-                {
-                    d3dmeshList.resize(d3dmeshList.size() + 1);
-                    d3dmeshList[d3dmeshList.size() - 1].Read(stream, false);
-                }
-                else if (memcmp(c, ".skl", sizeof(".skl")) == 0)
-                {
-                    skeleton.Read(stream, false);
-                }
-                else if (memcmp(c, ".anm", sizeof(".anm")) == 0)
-                {
-                    animationList.resize(animationList.size() + 1);
-                    animationList[animationList.size() - 1].Read(stream, false);
+
+                    TTH::Stream stream = TTH::Stream(filePath, "rb");
+                    stream.SeekMetaHeaderEnd();
+                    char *c;
+                    for (c = filePath + strnlen(filePath, sizeof(filePath)); *c != '.' && c != filePath; --c)
+                    {
+                    }
+                    if (memcmp(c, ".d3dmesh", sizeof(".d3dmesh")) == 0)
+                    {
+                        d3dmeshList.resize(d3dmeshList.size() + 1);
+                        d3dmeshList[d3dmeshList.size() - 1].Read(stream, false);
+                    }
+                    else if (memcmp(c, ".skl", sizeof(".skl")) == 0)
+                    {
+                        skeleton.Read(stream, false);
+                    }
+                    else if (memcmp(c, ".anm", sizeof(".anm")) == 0)
+                    {
+                        animationList.resize(animationList.size() + 1);
+                        animationList[animationList.size() - 1].Read(stream, false);
+                    }
                 }
             }
 
