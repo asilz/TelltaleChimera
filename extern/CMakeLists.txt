@@ -2,8 +2,8 @@
 # Why does imgui not have CMakeLists.txt, so annoying
 add_subdirectory(hydra)
 add_subdirectory(sdl3)
-add_subdirectory(vulkan)
-add_subdirectory(vulkan-headers)
+#add_subdirectory(vulkan)
+#add_subdirectory(vulkan-headers)
 
 target_link_libraries(chimera hydra)
 target_link_libraries(chimera imgui_lib)
@@ -30,7 +30,7 @@ include_directories(${IMGUI_DIR} ${IMGUI_DIR}/backends ..)
 #find_package(Vulkan REQUIRED)
 #find_library(VULKAN_LIBRARY
   #NAMES vulkan vulkan-1)
-set(LIBRARIES "SDL3-shared;vulkan;Vulkan-Headers")
+set(LIBRARIES "SDL3-shared;vulkan")
 
 file(GLOB sources ${IMGUI_DIR}/*.cpp)
 
