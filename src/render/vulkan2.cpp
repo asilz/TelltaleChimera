@@ -658,6 +658,11 @@ VkResult Renderer::RecreateSwapchain()
     {
         return err;
     }
+    err = CreateDepthResources();
+    if (err != VkResult::VK_SUCCESS)
+    {
+        return err;
+    }
     err = CreateFramebuffers();
     if (err != VkResult::VK_SUCCESS)
     {
@@ -1507,6 +1512,13 @@ VkResult Renderer::VulkanInit()
 
 void Renderer::CleanupSwapchain()
 {
+    vkDestroyImageView(device, depthImageView, nullptr);
+    vkDestroyImage(device, depthImage, nullptr);
+    vkFreeMemory(device, depthImageMemory, nullptr);
+    depthImageView = VK_NULL_HANDLE;
+    depthImage = VK_NULL_HANDLE;
+    depthImageMemory = VK_NULL_HANDLE;
+
     for (uint32_t i = 0; i < imageCount; ++i)
     {
         vkDestroyFramebuffer(device, swapchainFramebuffers[i], nullptr);
@@ -1519,6 +1531,8 @@ void Renderer::CleanupSwapchain()
     swapchainImages = nullptr;
     swapchainFramebuffers = nullptr;
     imageCount = 0;
+
+    vkDestroySwapchainKHR(device, swapchain, nullptr);
 }
 
 Renderer::~Renderer()
@@ -1538,10 +1552,6 @@ Renderer::~Renderer()
     vkDestroyRenderPass(device, renderPass, nullptr);
     CleanupSwapchain();
 
-    vkDestroyImage(device, depthImage, nullptr);
-    vkDestroyImageView(device, depthImageView, nullptr);
-    vkFreeMemory(device, depthImageMemory, nullptr);
-
     for (uint32_t i = 0; i < MAX_FRAMES_IN_FLIGHT; ++i)
     {
         vkDestroyBuffer(device, uniformBuffers[i], nullptr);
@@ -1553,7 +1563,6 @@ Renderer::~Renderer()
     vkFreeMemory(device, indexBufferMemory, nullptr);
     vkDestroyBuffer(device, vertexBuffer, nullptr);
     vkFreeMemory(device, vertexBufferMemory, nullptr);
-    vkDestroySwapchainKHR(device, swapchain, nullptr);
     SDL_Vulkan_DestroySurface(instance, surface, nullptr);
     vkDestroyDevice(device, nullptr);
     vkDestroyInstance(instance, nullptr);
