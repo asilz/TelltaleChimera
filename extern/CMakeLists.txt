@@ -4,9 +4,11 @@ add_subdirectory(hydra)
 add_subdirectory(sdl3)
 #add_subdirectory(vulkan)
 #add_subdirectory(vulkan-headers)
+find_package(glm REQUIRED)
 
 target_link_libraries(chimera hydra)
 target_link_libraries(chimera imgui_lib)
+target_link_libraries(chimera glm::glm)
 
 
 if(TRUE)

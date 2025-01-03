@@ -1,6 +1,7 @@
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_vulkan.h>
 #include <array>
+#include <vector>
 #include <vulkan/vulkan.h>
 
 struct QueueFamilyIndices
@@ -14,6 +15,8 @@ struct Renderer
 {
     static constexpr uint32_t MAX_FRAMES_IN_FLIGHT = 2;
 
+    float time = 0.0f;
+
     SDL_Window *window = nullptr;
 
     VkInstance instance = VK_NULL_HANDLE;
@@ -24,6 +27,7 @@ struct Renderer
     VkCommandPool transferPool = VK_NULL_HANDLE;
     VkRenderPass renderPass = VK_NULL_HANDLE;
     VkFramebuffer framebuffer = VK_NULL_HANDLE;
+    VkDescriptorSetLayout descriptorSetLayout = VK_NULL_HANDLE;
     VkPipelineLayout pipelineLayout = VK_NULL_HANDLE;
     VkPipeline graphicsPipeline = VK_NULL_HANDLE;
 
@@ -40,6 +44,10 @@ struct Renderer
     std::array<VkSemaphore, MAX_FRAMES_IN_FLIGHT> renderFinishedSemaphores;
     std::array<VkFence, MAX_FRAMES_IN_FLIGHT> inFlightFences;
 
+    std::array<VkBuffer, MAX_FRAMES_IN_FLIGHT> uniformBuffers;
+    std::array<VkDeviceMemory, MAX_FRAMES_IN_FLIGHT> uniformBuffersMemory;
+    std::array<void *, MAX_FRAMES_IN_FLIGHT> uniformBuffersMapped;
+
     uint32_t currentFrameIndex = 0;
     uint32_t imageCount = 0;
     VkImage *swapchainImages = nullptr;
@@ -50,6 +58,13 @@ struct Renderer
     VkDeviceMemory vertexBufferMemory = VK_NULL_HANDLE;
     VkBuffer indexBuffer = VK_NULL_HANDLE;
     VkDeviceMemory indexBufferMemory = VK_NULL_HANDLE;
+
+    VkDescriptorPool descriptorPool;
+    std::array<VkDescriptorSet, MAX_FRAMES_IN_FLIGHT> descriptorSets;
+
+    VkImage depthImage;
+    VkDeviceMemory depthImageMemory;
+    VkImageView depthImageView;
 
     VkResult DrawFrame();
     VkResult RecordCommandBuffer(uint32_t imageIndex);
@@ -63,9 +78,19 @@ struct Renderer
     VkResult CreateBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, VkBuffer &buffer, VkDeviceMemory &bufferMemory);
     VkResult CreateVertexBuffers();
     VkResult CreateIndexBuffer();
+    VkResult CreateUniformBuffers();
+    VkResult UpdateUniformBuffer(uint32_t currentImage);
     VkResult CopyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size);
     VkResult RecreateSwapchain();
     VkResult CreateDescriptorSetLayout();
+    VkResult CreateDescriptorPool();
+    VkResult CreateDescriptorSets();
+    VkResult CreateTextureImage();
+    VkResult CreateDepthResources();
+    VkFormat FindSupportedFormat(const std::vector<VkFormat> &candidates, VkImageTiling tiling, VkFormatFeatureFlags features);
+    VkFormat FindDepthFormat();
+    VkResult CreateImage(uint32_t width, uint32_t height, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, VkMemoryPropertyFlags properties, VkImage &image,
+                         VkDeviceMemory &imageMemory);
     int64_t FindMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags flags);
     void CleanupSwapchain();
     ~Renderer();
