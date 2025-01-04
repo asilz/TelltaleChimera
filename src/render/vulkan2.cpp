@@ -17,6 +17,84 @@ constexpr std::array<const char *, 1> deviceExtensions = {VK_KHR_SWAPCHAIN_EXTEN
 #define DEBUG 0
 #endif
 
+enum GFXPlatformVertexAttribute
+{
+    eGFXPlatformAttribute_Position,
+    eGFXPlatformAttribute_Normal,
+    eGFXPlatformAttribute_Tangent,
+    eGFXPlatformAttribute_BlendWeight,
+    eGFXPlatformAttribute_BlendIndex,
+    eGFXPlatformAttribute_Color,
+    eGFXPlatformAttribute_TexCoord,
+    eGFXPlatformAttribute_Count,
+    eGFXPlatformAttribute_None = -1
+};
+
+enum GFXPlatformFormat
+{
+    eGFXPlatformFormat_None,
+    eGFXPlatformFormat_F32,
+    eGFXPlatformFormat_F32x2,
+    eGFXPlatformFormat_F32x3,
+    eGFXPlatformFormat_F32x4,
+    eGFXPlatformFormat_F16x2,
+    eGFXPlatformFormat_F16x4,
+    eGFXPlatformFormat_S32,
+    eGFXPlatformFormat_U32,
+    eGFXPlatformFormat_S32x2,
+    eGFXPlatformFormat_U32x2,
+    eGFXPlatformFormat_S32x3,
+    eGFXPlatformFormat_U32x3,
+    eGFXPlatformFormat_S32x4,
+    eGFXPlatformFormat_U32x4,
+    eGFXPlatformFormat_S16,
+    eGFXPlatformFormat_U16,
+    eGFXPlatformFormat_S16x2,
+    eGFXPlatformFormat_U16x2,
+    eGFXPlatformFormat_S16x4,
+    eGFXPlatformFormat_U16x4,
+    eGFXPlatformFormat_SN16,
+    eGFXPlatformFormat_UN16,
+    eGFXPlatformFormat_SN16x2,
+    eGFXPlatformFormat_UN16x2,
+    eGFXPlatformFormat_SN16x4,
+    eGFXPlatformFormat_UN16x4,
+    eGFXPlatformFormat_S8,
+    eGFXPlatformFormat_U8,
+    eGFXPlatformFormat_S8x2,
+    eGFXPlatformFormat_U8x2,
+    eGFXPlatformFormat_S8x4,
+    eGFXPlatformFormat_U8x4,
+    eGFXPlatformFormat_SN8,
+    eGFXPlatformFormat_UN8,
+    eGFXPlatformFormat_SN8x2,
+    eGFXPlatformFormat_UN8x2,
+    eGFXPlatformFormat_SN8x4,
+    eGFXPlatformFormat_UN8x4,
+    eGFXPlatformFormat_SN10_SN11_SN11,
+    eGFXPlatformFormat_SN10x3_SN2,
+    eGFXPlatformFormat_UN10x3_UN2,
+    eGFXPlatformFormat_D3DCOLOR,
+    eGFXPlatformFormat_Count
+};
+
+enum eGFXPlatformBufferUsage
+{
+    eGFXPlatformBuffer_None = 0x0,
+    eGFXPlatformBuffer_Vertex = 0x1,
+    eGFXPlatformBuffer_Index = 0x2,
+    eGFXPlatformBuffer_Uniform = 0x4,
+    eGFXPlatformBuffer_ShaderRead = 0x8,
+    eGFXPlatformBuffer_ShaderWrite = 0x10,
+    eGFXPlatformBuffer_ShaderReadWrite = 0x18,
+    eGFXPlatformBuffer_ShaderRawAccess = 0x20,
+    eGFXPlatformBuffer_ShaderReadRaw = 0x28,
+    eGFXPlatformBuffer_ShaderWriteRaw = 0x30,
+    eGFXPlatformBuffer_ShaderReadWriteRaw = 0x38,
+    eGFXPlatformBuffer_DrawIndirectArgs = 0x40,
+    eGFXPlatformBuffer_SingleValue = 0x80
+};
+
 struct Vertex
 {
     glm::vec3 pos;
@@ -31,6 +109,19 @@ struct Vertex
             VkVertexInputAttributeDescription{.location = 1, .binding = 0, .format = VK_FORMAT_R32G32B32_SFLOAT, .offset = offsetof(Vertex, color)},
             VkVertexInputAttributeDescription{.location = 2, .binding = 0, .format = VK_FORMAT_R32G32_SFLOAT, .offset = offsetof(Vertex, texCoord)}};
     };
+};
+
+struct VertexD3D
+{
+    uint16_t position[4];
+
+    static VkVertexInputBindingDescription getBindingDescription() { return {.binding = 0, .stride = sizeof(VertexD3D), .inputRate = VK_VERTEX_INPUT_RATE_VERTEX}; }
+    static std::array<VkVertexInputAttributeDescription, 1> getAttributeDescription()
+    {
+        return std::array<VkVertexInputAttributeDescription, 1>{
+            VkVertexInputAttributeDescription{.location = 0, .binding = 0, .format = VK_FORMAT_R16G16B16A16_UNORM, .offset = offsetof(VertexD3D, position)},
+        };
+    }
 };
 
 static const Vertex vertices[] = {
@@ -447,10 +538,10 @@ VkResult Renderer::RecordCommandBuffer(uint32_t imageIndex)
 
     VkDeviceSize offsets[1] = {0};
     vkCmdBindVertexBuffers(commandBuffers[currentFrameIndex], 0, 1, &vertexBuffer, offsets);
-    vkCmdBindIndexBuffer(commandBuffers[currentFrameIndex], indexBuffer, 0, VkIndexType::VK_INDEX_TYPE_UINT32);
+    vkCmdBindIndexBuffer(commandBuffers[currentFrameIndex], indexBuffer, 0, VkIndexType::VK_INDEX_TYPE_UINT16);
     // vkCmdDraw(commandBuffers[currentFrameIndex], sizeof(vertices) / sizeof(*vertices), 1, 0, 0);
     vkCmdBindDescriptorSets(commandBuffers[currentFrameIndex], VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &descriptorSets[currentFrameIndex], 0, nullptr);
-    vkCmdDrawIndexed(commandBuffers[currentFrameIndex], sizeof(indexData) / sizeof(indexData[0]), 1, 0, 0, 0);
+    vkCmdDrawIndexed(commandBuffers[currentFrameIndex], d3dmesh.mMeshData.mVertexStates[0].mpIndexBuffer[0].mCount, 1, 0, 0, 0);
 
     vkCmdEndRenderPass(commandBuffers[currentFrameIndex]);
 
@@ -743,8 +834,8 @@ VkResult Renderer::CreateGraphicsPipeline()
 
     VkPipelineVertexInputStateCreateInfo vertexInputInfo{};
     vertexInputInfo.sType = VkStructureType::VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
-    VkVertexInputBindingDescription vertexBindingDescription = Vertex::getBindingDescription();
-    std::array<VkVertexInputAttributeDescription, 3> vertexAttributDescriptions = Vertex::getAttributeDescription();
+    VkVertexInputBindingDescription vertexBindingDescription = VertexD3D::getBindingDescription();
+    auto vertexAttributDescriptions = VertexD3D::getAttributeDescription();
 
     vertexInputInfo.vertexBindingDescriptionCount = 1;
     vertexInputInfo.pVertexBindingDescriptions = &vertexBindingDescription; // Optional, vertex buffer stuff
@@ -910,6 +1001,61 @@ VkResult Renderer::CreateBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkM
     return vkBindBufferMemory(device, buffer, bufferMemory, 0);
 }
 
+VkResult Renderer::CreateVertexBuffersD3D()
+{
+    uint8_t *vertexData = d3dmesh.async;
+    for (size_t i = 0; i < d3dmesh.mMeshData.mVertexStates[0].mIndexBufferCount; ++i)
+    {
+        vertexData += d3dmesh.mMeshData.mVertexStates[0].mpIndexBuffer[i].mCount * d3dmesh.mMeshData.mVertexStates[0].mpIndexBuffer[i].mStride;
+    }
+    size_t index = 0;
+    for (; index < d3dmesh.mMeshData.mVertexStates[0].mAttributeCount; ++index)
+    {
+        if (d3dmesh.mMeshData.mVertexStates[0].mAttributes[index].mAttribute == GFXPlatformVertexAttribute::eGFXPlatformAttribute_Position)
+        {
+            break;
+        }
+        else
+        {
+            vertexData += d3dmesh.mMeshData.mVertexStates[0].mpVertexBuffer[index].mCount * d3dmesh.mMeshData.mVertexStates[0].mpVertexBuffer[index].mStride;
+        }
+    }
+
+    VkDeviceSize bufferSize = d3dmesh.mMeshData.mVertexStates[0].mpVertexBuffer[index].mCount * d3dmesh.mMeshData.mVertexStates[0].mpVertexBuffer[index].mStride;
+    VkBuffer stagingBuffer;
+    VkDeviceMemory stagingBufferMemory;
+    VkResult err = CreateBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, stagingBuffer, stagingBufferMemory);
+    if (err != VkResult::VK_SUCCESS)
+    {
+        return err;
+    }
+
+    void *data;
+    err = vkMapMemory(device, stagingBufferMemory, 0, bufferSize, 0, &data);
+    if (err != VkResult::VK_SUCCESS)
+    {
+        return err;
+    }
+    memcpy(data, vertexData, (size_t)bufferSize);
+    vkUnmapMemory(device, stagingBufferMemory);
+
+    err = CreateBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, vertexBuffer, vertexBufferMemory);
+    if (err != VkResult::VK_SUCCESS)
+    {
+        return err;
+    }
+    err = CopyBuffer(stagingBuffer, vertexBuffer, bufferSize);
+    if (err != VkResult::VK_SUCCESS)
+    {
+        return err;
+    }
+
+    vkDestroyBuffer(device, stagingBuffer, nullptr);
+    vkFreeMemory(device, stagingBufferMemory, nullptr);
+
+    return VkResult::VK_SUCCESS;
+}
+
 VkResult Renderer::CreateVertexBuffers()
 {
     VkDeviceSize bufferSize = sizeof(vertices);
@@ -936,6 +1082,43 @@ VkResult Renderer::CreateVertexBuffers()
         return err;
     }
     err = CopyBuffer(stagingBuffer, vertexBuffer, bufferSize);
+    if (err != VkResult::VK_SUCCESS)
+    {
+        return err;
+    }
+
+    vkDestroyBuffer(device, stagingBuffer, nullptr);
+    vkFreeMemory(device, stagingBufferMemory, nullptr);
+
+    return VkResult::VK_SUCCESS;
+}
+
+VkResult Renderer::CreateIndexBufferD3D()
+{
+    VkDeviceSize bufferSize = d3dmesh.mMeshData.mVertexStates[0].mpIndexBuffer[0].mCount * d3dmesh.mMeshData.mVertexStates[0].mpIndexBuffer[0].mStride;
+    VkBuffer stagingBuffer;
+    VkDeviceMemory stagingBufferMemory;
+    VkResult err = CreateBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, stagingBuffer, stagingBufferMemory);
+    if (err != VkResult::VK_SUCCESS)
+    {
+        return err;
+    }
+
+    void *data;
+    err = vkMapMemory(device, stagingBufferMemory, 0, bufferSize, 0, &data);
+    if (err != VkResult::VK_SUCCESS)
+    {
+        return err;
+    }
+    memcpy(data, d3dmesh.async, (size_t)bufferSize);
+    vkUnmapMemory(device, stagingBufferMemory);
+
+    err = CreateBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, indexBuffer, indexBufferMemory);
+    if (err != VkResult::VK_SUCCESS)
+    {
+        return err;
+    }
+    err = CopyBuffer(stagingBuffer, indexBuffer, bufferSize);
     if (err != VkResult::VK_SUCCESS)
     {
         return err;
@@ -1423,14 +1606,14 @@ VkResult Renderer::VulkanInit()
     }
 
     /* Vertex Buffers */
-    err = CreateVertexBuffers();
+    err = CreateVertexBuffersD3D();
     if (err != VkResult::VK_SUCCESS)
     {
         return err;
     }
 
     /* Index buffer */
-    err = CreateIndexBuffer();
+    err = CreateIndexBufferD3D();
     if (err != VkResult::VK_SUCCESS)
     {
         return err;
