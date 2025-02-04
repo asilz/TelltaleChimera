@@ -4,11 +4,11 @@
 #include <glm/ext/matrix_clip_space.hpp>
 #include <glm/ext/matrix_transform.hpp>
 #include <glm/glm.hpp>
+#include <glm/gtx/quaternion.hpp>
 #include <set>
 #include <ttc/render/vulkan2.hpp>
+#include <tth/core/errno.hpp>
 #include <tth/core/log.hpp>
-#include <tth/meta/linalg/vector.hpp>
-#include <tth/meta/skeleton/skeleton.hpp>
 
 constexpr std::array<const char *, 1> validationLayers = {"VK_LAYER_KHRONOS_validation"};
 constexpr std::array<const char *, 1> deviceExtensions = {VK_KHR_SWAPCHAIN_EXTENSION_NAME};
@@ -115,11 +115,20 @@ struct VertexD3D
 {
     uint16_t position[4];
 
-    static VkVertexInputBindingDescription getBindingDescription() { return {.binding = 0, .stride = sizeof(VertexD3D), .inputRate = VK_VERTEX_INPUT_RATE_VERTEX}; }
-    static std::array<VkVertexInputAttributeDescription, 1> getAttributeDescription()
+    static std::array<VkVertexInputBindingDescription, 3> getBindingDescription()
     {
-        return std::array<VkVertexInputAttributeDescription, 1>{
+        return std::array<VkVertexInputBindingDescription, 3>{
+            VkVertexInputBindingDescription{.binding = 0, .stride = sizeof(VertexD3D), .inputRate = VK_VERTEX_INPUT_RATE_VERTEX},
+            VkVertexInputBindingDescription{.binding = 1, .stride = sizeof(uint8_t) * 4, .inputRate = VK_VERTEX_INPUT_RATE_VERTEX},
+            VkVertexInputBindingDescription{.binding = 2, .stride = sizeof(float) * 4, .inputRate = VK_VERTEX_INPUT_RATE_VERTEX},
+        };
+    }
+    static std::array<VkVertexInputAttributeDescription, 3> getAttributeDescription()
+    {
+        return std::array<VkVertexInputAttributeDescription, 3>{
             VkVertexInputAttributeDescription{.location = 0, .binding = 0, .format = VK_FORMAT_R16G16B16A16_UNORM, .offset = offsetof(VertexD3D, position)},
+            VkVertexInputAttributeDescription{.location = 1, .binding = 1, .format = VK_FORMAT_R8G8B8A8_UINT, .offset = offsetof(VertexD3D, position)},
+            VkVertexInputAttributeDescription{.location = 2, .binding = 2, .format = VK_FORMAT_R32G32B32A32_SFLOAT, .offset = offsetof(VertexD3D, position)},
         };
     }
 };
@@ -141,9 +150,18 @@ template <size_t N, size_t M> struct Matrix
 
 struct UniformBufferObject
 {
+    glm::mat4x4 baseTransforms[256];
+    glm::mat4x4 boneTransforms[256];
     glm::mat4x4 model;
     glm::mat4x4 view;
     glm::mat4x4 proj;
+    glm::mat4x4 vertexTransform;
+    int boneCount;
+};
+
+struct JointTransform
+{
+    glm::mat4x4 transform;
 };
 
 static const uint32_t indexData[] = {0, 1, 2, 2, 3, 0, 4, 5, 6, 6, 7, 4};
@@ -512,7 +530,7 @@ VkResult Renderer::RecordCommandBuffer(uint32_t imageIndex)
     renderPassInfo.renderArea.extent = swapchainExtent;
 
     std::array<VkClearValue, 2> clearValues{};
-    clearValues[0].color = {{0.0f, 0.0f, 0.0f, 1.0f}};
+    clearValues[0].color = {{1.0f, 1.0f, 1.0f, 1.0f}};
     clearValues[1].depthStencil = {1.0f, 0};
 
     renderPassInfo.clearValueCount = static_cast<uint32_t>(clearValues.size());
@@ -536,8 +554,15 @@ VkResult Renderer::RecordCommandBuffer(uint32_t imageIndex)
     scissor.extent = swapchainExtent;
     vkCmdSetScissor(commandBuffers[currentFrameIndex], 0, 1, &scissor);
 
-    VkDeviceSize offsets[1] = {0};
-    vkCmdBindVertexBuffers(commandBuffers[currentFrameIndex], 0, 1, &vertexBuffer, offsets);
+    VkDeviceSize offsets[3] = {0, 0, 0};
+
+    assert(d3dmesh.mMeshData.mVertexStates[0].mAttributes[0].mAttribute == GFXPlatformVertexAttribute::eGFXPlatformAttribute_Position);
+
+    offsets[1] = offsets[0] + d3dmesh.mMeshData.mVertexStates[0].mpVertexBuffer[0].mStride * d3dmesh.mMeshData.mVertexStates[0].mpVertexBuffer[0].mCount;
+    offsets[2] = offsets[1] + d3dmesh.mMeshData.mVertexStates[0].mpVertexBuffer[0].mCount * sizeof(uint8_t) * 4;
+
+    VkBuffer bufs[3] = {vertexBuffer, vertexBuffer, vertexBuffer};
+    vkCmdBindVertexBuffers(commandBuffers[currentFrameIndex], 0, sizeof(offsets) / sizeof(*offsets), bufs, offsets);
     vkCmdBindIndexBuffer(commandBuffers[currentFrameIndex], indexBuffer, 0, VkIndexType::VK_INDEX_TYPE_UINT16);
     // vkCmdDraw(commandBuffers[currentFrameIndex], sizeof(vertices) / sizeof(*vertices), 1, 0, 0);
     vkCmdBindDescriptorSets(commandBuffers[currentFrameIndex], VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &descriptorSets[currentFrameIndex], 0, nullptr);
@@ -834,11 +859,11 @@ VkResult Renderer::CreateGraphicsPipeline()
 
     VkPipelineVertexInputStateCreateInfo vertexInputInfo{};
     vertexInputInfo.sType = VkStructureType::VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
-    VkVertexInputBindingDescription vertexBindingDescription = VertexD3D::getBindingDescription();
+    auto vertexBindingDescription = VertexD3D::getBindingDescription();
     auto vertexAttributDescriptions = VertexD3D::getAttributeDescription();
 
-    vertexInputInfo.vertexBindingDescriptionCount = 1;
-    vertexInputInfo.pVertexBindingDescriptions = &vertexBindingDescription; // Optional, vertex buffer stuff
+    vertexInputInfo.vertexBindingDescriptionCount = vertexBindingDescription.size();
+    vertexInputInfo.pVertexBindingDescriptions = vertexBindingDescription.data(); // Optional, vertex buffer stuff
     vertexInputInfo.vertexAttributeDescriptionCount = vertexAttributDescriptions.size();
     vertexInputInfo.pVertexAttributeDescriptions = vertexAttributDescriptions.data(); // Optional, vertex buffer stuff
 
@@ -1008,20 +1033,9 @@ VkResult Renderer::CreateVertexBuffersD3D()
     {
         vertexData += d3dmesh.mMeshData.mVertexStates[0].mpIndexBuffer[i].mCount * d3dmesh.mMeshData.mVertexStates[0].mpIndexBuffer[i].mStride;
     }
-    size_t index = 0;
-    for (; index < d3dmesh.mMeshData.mVertexStates[0].mAttributeCount; ++index)
-    {
-        if (d3dmesh.mMeshData.mVertexStates[0].mAttributes[index].mAttribute == GFXPlatformVertexAttribute::eGFXPlatformAttribute_Position)
-        {
-            break;
-        }
-        else
-        {
-            vertexData += d3dmesh.mMeshData.mVertexStates[0].mpVertexBuffer[index].mCount * d3dmesh.mMeshData.mVertexStates[0].mpVertexBuffer[index].mStride;
-        }
-    }
 
-    VkDeviceSize bufferSize = d3dmesh.mMeshData.mVertexStates[0].mpVertexBuffer[index].mCount * d3dmesh.mMeshData.mVertexStates[0].mpVertexBuffer[index].mStride;
+    VkDeviceSize bufferSize = d3dmesh.mMeshData.mVertexStates[0].mpVertexBuffer[0].mCount * d3dmesh.mMeshData.mVertexStates[0].mpVertexBuffer[0].mStride +
+                              d3dmesh.mMeshData.mVertexCount * 4 * sizeof(uint8_t) + d3dmesh.mMeshData.mVertexCount * 4 * sizeof(float);
     VkBuffer stagingBuffer;
     VkDeviceMemory stagingBufferMemory;
     VkResult err = CreateBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, stagingBuffer, stagingBufferMemory);
@@ -1036,7 +1050,49 @@ VkResult Renderer::CreateVertexBuffersD3D()
     {
         return err;
     }
-    memcpy(data, vertexData, (size_t)bufferSize);
+    memcpy(data, vertexData, static_cast<size_t>(d3dmesh.mMeshData.mVertexCount * d3dmesh.mMeshData.mVertexStates[0].mpVertexBuffer[0].mStride));
+    uint8_t *blendIndices = (uint8_t *)data + d3dmesh.mMeshData.mVertexCount * d3dmesh.mMeshData.mVertexStates[0].mpVertexBuffer[0].mStride;
+    uint8_t *vertexDataCopy = vertexData;
+
+    for (size_t i = 0; i < d3dmesh.mMeshData.mVertexStates[0].mAttributeCount; ++i)
+    {
+        if (d3dmesh.mMeshData.mVertexStates[0].mAttributes[i].mAttribute == GFXPlatformVertexAttribute::eGFXPlatformAttribute_BlendIndex)
+        {
+            break;
+        }
+        else
+        {
+            vertexData += d3dmesh.mMeshData.mVertexStates[0].mpVertexBuffer[i].mCount * d3dmesh.mMeshData.mVertexStates[0].mpVertexBuffer[i].mStride;
+        }
+    }
+    memcpy(blendIndices, vertexData, d3dmesh.mMeshData.mVertexCount * sizeof(uint8_t) * 4);
+    vertexData = vertexDataCopy;
+
+    float *blendWeights = (float *)(blendIndices + d3dmesh.mMeshData.mVertexCount * sizeof(uint8_t) * 4);
+    for (size_t i = 0; i < d3dmesh.mMeshData.mVertexStates[0].mAttributeCount; ++i)
+    {
+        if (d3dmesh.mMeshData.mVertexStates[0].mAttributes[i].mAttribute == GFXPlatformVertexAttribute::eGFXPlatformAttribute_BlendWeight)
+        {
+            break;
+        }
+        else
+        {
+            vertexData += d3dmesh.mMeshData.mVertexStates[0].mpVertexBuffer[i].mCount * d3dmesh.mMeshData.mVertexStates[0].mpVertexBuffer[i].mStride;
+        }
+    }
+    for (size_t i = 0; i < d3dmesh.mMeshData.mVertexCount * 4; i += 4)
+    {
+        blendWeights[i] = 1.0f - (float)(*((uint32_t *)vertexData) & 0x3ff) / 1023.0f / 8.0f - (float)(*((uint32_t *)vertexData) >> 30) / 8.0f -
+                          (float)(*((uint32_t *)vertexData) >> 10 & 0x3ff) / 1023.0f / 3.0f - (float)(*((uint32_t *)vertexData) >> 20 & 0x3ff) / 1023.0f / 4.0f;
+        blendWeights[i + 1] = (float)(*((uint32_t *)vertexData) & 0x3ff) / 1023.0f / 8.0f + (float)(*((uint32_t *)vertexData) >> 30) / 8.0f;
+        blendWeights[i + 2] = (float)(*((uint32_t *)vertexData) >> 10 & 0x3ff) / 1023.0f / 3.0f;
+        blendWeights[i + 3] = (float)(*((uint32_t *)vertexData) >> 20 & 0x3ff) / 1023.0f / 4.0f;
+
+        // printf("%f, %f, %f, %f\n", blendWeights[i], blendWeights[i + 1], blendWeights[i + 2], blendWeights[i + 3]);
+
+        vertexData += sizeof(uint32_t);
+    }
+
     vkUnmapMemory(device, stagingBufferMemory);
 
     err = CreateBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, vertexBuffer, vertexBufferMemory);
@@ -1223,17 +1279,18 @@ VkResult Renderer::CopyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSi
 
 VkResult Renderer::CreateDescriptorSetLayout()
 {
-    VkDescriptorSetLayoutBinding uboLayoutBinding{};
-    uboLayoutBinding.binding = 0;
-    uboLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-    uboLayoutBinding.descriptorCount = 1; // USE THIS FOR SKELETON ANIMATION
-    uboLayoutBinding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
-    uboLayoutBinding.pImmutableSamplers = nullptr; // Optional
+    VkDescriptorSetLayoutBinding bindings[1] = {0};
+
+    bindings[0].binding = 0;
+    bindings[0].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    bindings[0].descriptorCount = 1; // USE THIS FOR SKELETON ANIMATION
+    bindings[0].stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+    bindings[0].pImmutableSamplers = nullptr; // Optional
 
     VkDescriptorSetLayoutCreateInfo layoutInfo{};
     layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-    layoutInfo.bindingCount = 1;
-    layoutInfo.pBindings = &uboLayoutBinding;
+    layoutInfo.bindingCount = sizeof(bindings) / sizeof(bindings[0]);
+    layoutInfo.pBindings = bindings;
 
     return vkCreateDescriptorSetLayout(device, &layoutInfo, nullptr, &descriptorSetLayout);
 }
@@ -1256,6 +1313,8 @@ VkResult Renderer::CreateUniformBuffers()
     }
     return VkResult::VK_SUCCESS;
 }
+
+VkResult Renderer::CreateUniformBoneBuffers() { return VkResult::VK_SUCCESS; }
 
 VkResult Renderer::CreateDescriptorPool()
 {
@@ -1283,7 +1342,7 @@ VkResult Renderer::CreateDescriptorSets()
         .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
         .pNext = nullptr,
         .descriptorPool = descriptorPool,
-        .descriptorSetCount = MAX_FRAMES_IN_FLIGHT,
+        .descriptorSetCount = static_cast<uint32_t>(descriptorSets.size()),
         .pSetLayouts = layouts.data(),
     };
 
@@ -1320,14 +1379,245 @@ VkResult Renderer::CreateDescriptorSets()
     return VkResult::VK_SUCCESS;
 }
 
+struct ActiveSample
+{
+    glm::vec3 v;
+    glm::quat q;
+    float vTime;
+    float qTime;
+
+    ActiveSample() : v(0.0f), q(0.0f, 0.0f, 0.0f, 1.0f), vTime(-1.0f), qTime(-1.0f) {}
+};
+
+static void SetGlobalTransforms(JointTransform *transforms, const TTH::Skeleton &skeleton, size_t childIndex)
+{
+    glm::mat4 localTransform = transforms[childIndex].transform;
+    transforms[childIndex].transform = glm::mat4(0.0f);
+    if (skeleton.mEntries[childIndex].mParentIndex >= 0)
+    {
+        glm::mat4 parentGlobalTransform;
+        SetGlobalTransforms(transforms, skeleton, skeleton.mEntries[childIndex].mParentIndex);
+        transforms[childIndex].transform *= parentGlobalTransform;
+    }
+    transforms[childIndex].transform *= localTransform;
+}
+
 VkResult Renderer::UpdateUniformBuffer(uint32_t currentImage)
 {
     UniformBufferObject *ubo = static_cast<UniformBufferObject *>(uniformBuffersMapped[currentFrameIndex]);
     ubo->model = glm::rotate(glm::mat4(1.0f), time * glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f));
     ubo->view = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
     ubo->proj = glm::perspective(glm::radians(45.0f), swapchainExtent.width / (float)swapchainExtent.height, 0.1f, 10.0f);
+    ubo->vertexTransform = glm::translate(glm::mat4(1.0f), glm::vec3{d3dmesh.mMeshData.mPositionOffset.x, d3dmesh.mMeshData.mPositionOffset.y, d3dmesh.mMeshData.mPositionOffset.z}) *
+                           glm::scale(glm::mat4(1.0f), glm::vec3{d3dmesh.mMeshData.mPositionScale.x, d3dmesh.mMeshData.mPositionScale.y, d3dmesh.mMeshData.mPositionScale.z});
     ubo->proj[1][1] *= -1;
-    time += 0.01f;
+    ubo->boneCount = skeleton.mEntries.size();
+
+    time += 0.001f;
+    if (time > animation.mLength)
+    {
+        time = 0.0f;
+    }
+
+    /* Animation, doing it like telltale even though it is a horrible way of doing it, but unlike telltale, I am using step interpolation for simplicity */
+    const TTH::CompressedSkeletonPoseKeys2 *cspk = nullptr;
+    for (int32_t i = 0; i < animation.mInterfaceCount && cspk == nullptr; ++i)
+    {
+        cspk = animation.mValues[i].GetTypePtr<TTH::CompressedSkeletonPoseKeys2>();
+    }
+    if (cspk == nullptr)
+    {
+        return VkResult::VK_ERROR_UNKNOWN;
+    }
+
+    TTH::CompressedSkeletonPoseKeys2::Header header = *(TTH::CompressedSkeletonPoseKeys2::Header *)(cspk->mpData); // TODO: undefined behaviour? Should probably fix
+    const uint8_t *cspkBuf = cspk->mpData + sizeof(header) + sizeof(int64_t);
+
+    header.mRangeVector.x *= 9.536752e-07f;
+    header.mRangeVector.y *= 2.384186e-07f;
+    header.mRangeVector.z *= 2.384186e-07f;
+
+    header.mRangeDeltaV.x *= 0.0009775171f;
+    header.mRangeDeltaV.y *= 0.0004885198f;
+    header.mRangeDeltaV.z *= 0.0004885198f;
+
+    header.mRangeDeltaQ.x *= 0.0009775171f;
+    header.mRangeDeltaQ.y *= 0.0004885198f;
+    header.mRangeDeltaQ.z *= 0.0004885198f;
+
+    size_t stagedDelQ = 4;
+    size_t stagedAbsQ = 4;
+    size_t stagedDelV = 4;
+    size_t stagedAbsV = 4;
+    glm::quat delQ[4];
+    glm::quat absQ[4];
+    glm::vec3 delV[4];
+    glm::vec3 absV[4];
+
+    ActiveSample *currentSamples = new ActiveSample[header.mBoneCount]();
+    ActiveSample *previousSamples = new ActiveSample[header.mBoneCount]();
+
+    for (const uint32_t *headerData = (uint32_t *)(cspkBuf + header.mSampleDataSize + header.mBoneCount * sizeof(uint64_t)); headerData < (uint32_t *)(cspk->mpData + cspk->mDataSize); ++headerData)
+    {
+        if ((*headerData & 0x40000000) == 0) // Vector
+        {
+            previousSamples[(*headerData >> 0x10) & 0xfff].v = currentSamples[(*headerData >> 0x10) & 0xfff].v;
+            previousSamples[(*headerData >> 0x10) & 0xfff].vTime = currentSamples[(*headerData >> 0x10) & 0xfff].vTime;
+            if (previousSamples[(*headerData >> 0x10) & 0xfff].vTime > time)
+            {
+                break;
+            }
+            currentSamples[(*headerData >> 0x10) & 0xfff].vTime = (float)(*headerData & 0xffff) * 1.525902e-05 * header.mRangeTime;
+            if ((int32_t)*headerData < 0)
+            {
+                if (stagedDelV > 3)
+                {
+                    for (uint32_t i = 0; i < 4; ++i)
+                    {
+                        delV[i].x = (float)(((uint32_t *)cspkBuf)[i] & 0x3ff) * header.mRangeDeltaV.x + header.mMinDeltaV.x;
+                        delV[i].y = (float)(((uint32_t *)cspkBuf)[i] >> 10 & 0x7ff) * header.mRangeDeltaV.y + header.mMinDeltaV.y;
+                        delV[i].z = (float)(((uint32_t *)cspkBuf)[i] >> 21) * header.mRangeDeltaV.z + header.mMinDeltaV.z;
+                    }
+                    cspkBuf += 4 * sizeof(uint32_t);
+                    stagedDelV = 0;
+                }
+                if (1)
+                {
+                    delV[stagedDelV] += previousSamples[(*headerData >> 0x10) & 0xfff].v;
+                }
+                currentSamples[(*headerData >> 0x10) & 0xfff].v = delV[stagedDelV];
+                ++stagedDelV;
+            }
+            else
+            {
+                if (stagedAbsV > 3)
+                {
+                    for (uint32_t i = 0; i < 4; ++i)
+                    {
+                        absV[i].x = (float)(((((uint32_t *)cspkBuf)[4 + i] & 0x3ff) << 10) | (((uint32_t *)cspkBuf)[i] & 0x3ff)) * header.mRangeVector.x + header.mMinVector.x;
+                        absV[i].y = (float)(((((uint32_t *)cspkBuf)[4 + i] >> 10 & 0x7ff) << 11) | (((uint32_t *)cspkBuf)[i] >> 10 & 0x7ff)) * header.mRangeVector.y + header.mMinVector.y;
+                        absV[i].z = (float)(((((uint32_t *)cspkBuf)[4 + i] >> 21) << 11) | (((uint32_t *)cspkBuf)[i] >> 21)) * header.mRangeVector.z + header.mMinVector.z;
+                    }
+                    cspkBuf += 8 * sizeof(uint32_t);
+                    stagedAbsV = 0;
+                }
+                currentSamples[(*headerData >> 0x10) & 0xfff].v = absV[stagedAbsV];
+                ++stagedAbsV;
+            }
+        }
+        else // Quaternion
+        {
+            previousSamples[(*headerData >> 0x10) & 0xfff].q = currentSamples[(*headerData >> 0x10) & 0xfff].q;
+            previousSamples[(*headerData >> 0x10) & 0xfff].qTime = currentSamples[(*headerData >> 0x10) & 0xfff].qTime;
+            if (previousSamples[(*headerData >> 0x10) & 0xfff].qTime > time)
+            {
+                break;
+            }
+            currentSamples[(*headerData >> 0x10) & 0xfff].qTime = (float)(*headerData & 0xffff) * 1.525902e-05 * header.mRangeTime;
+            if ((int32_t)*headerData < 0)
+            {
+                if (stagedDelQ > 3)
+                {
+                    for (uint32_t i = 0; i < 4; ++i)
+                    {
+                        delQ[i].x = (float)(((uint32_t *)cspkBuf)[i] & 0x3ff) * header.mRangeDeltaQ.x + header.mMinDeltaQ.x;
+                        delQ[i].y = (float)(((uint32_t *)cspkBuf)[i] >> 10 & 0x7ff) * header.mRangeDeltaQ.y + header.mMinDeltaQ.y;
+                        delQ[i].z = (float)(((uint32_t *)cspkBuf)[i] >> 21) * header.mRangeDeltaQ.z + header.mMinDeltaQ.z;
+                        delQ[i].w = ((1.0 - delQ[i].x * delQ[i].x) - delQ[i].y * delQ[i].y) - delQ[i].z * delQ[i].z;
+
+                        if (delQ[i].w > 0.0f)
+                        {
+                            delQ[i].w = sqrtf(delQ[i].w);
+                        }
+                        else
+                        {
+                            delQ[i].w = 0.0f;
+                        }
+                    }
+                    cspkBuf += 4 * sizeof(uint32_t);
+                    stagedDelQ = 0;
+                }
+                if (1)
+                {
+                    delQ[stagedDelQ] *= previousSamples[(*headerData >> 0x10) & 0xfff].q;
+                }
+                currentSamples[(*headerData >> 0x10) & 0xfff].q = delQ[stagedDelQ];
+                ++stagedDelQ;
+            }
+            else
+            {
+                if (stagedAbsQ > 3)
+                {
+                    for (uint32_t i = 0; i < 4; ++i)
+                    {
+                        absQ[i].x = (float)(((((uint32_t *)cspkBuf)[4 + i] & 0x3ff) << 10) | (((uint32_t *)cspkBuf)[i] & 0x3ff)) * 1.3487e-06 - 0.7071068;
+                        absQ[i].y = (float)(((((uint32_t *)cspkBuf)[4 + i] >> 10 & 0x7ff) << 11) | (((uint32_t *)cspkBuf)[i] >> 10 & 0x7ff)) * 3.371749e-07 - 0.7071068;
+                        absQ[i].z = (float)(((((uint32_t *)cspkBuf)[4 + i] >> 21) << 11) | (((uint32_t *)cspkBuf)[i] >> 21)) * 3.371749e-07 - 0.7071068;
+                        absQ[i].w = ((1.0 - absQ[i].x * absQ[i].x) - absQ[i].y * absQ[i].y) - absQ[i].z * absQ[i].z;
+                        if (absQ[i].w > 0.0f)
+                        {
+                            absQ[i].w = sqrtf(absQ[i].w);
+                        }
+                        else
+                        {
+                            absQ[i].w = 0.0f;
+                        }
+                    }
+                    cspkBuf += 8 * sizeof(uint32_t);
+                    stagedAbsQ = 0;
+                }
+                uint32_t axisOrder = *headerData >> 0x1c & 3;
+                currentSamples[(*headerData >> 0x10) & 0xfff].q.x = *(((float *)absQ + (axisOrder ^ 1)) + 4 * stagedAbsQ);
+                currentSamples[(*headerData >> 0x10) & 0xfff].q.y = *(((float *)absQ + (axisOrder ^ 2)) + 4 * stagedAbsQ);
+                currentSamples[(*headerData >> 0x10) & 0xfff].q.z = *(((float *)absQ + (axisOrder ^ 3)) + 4 * stagedAbsQ);
+                currentSamples[(*headerData >> 0x10) & 0xfff].q.w = *(((float *)absQ + (axisOrder)) + 4 * stagedAbsQ);
+                ++stagedAbsQ;
+            }
+        }
+    }
+
+    cspkBuf = cspk->mpData + sizeof(header) + sizeof(int64_t) + header.mSampleDataSize;
+
+    for (size_t i = 0; i < skeleton.mEntries.size(); ++i)
+    {
+        ubo->boneTransforms[i] = glm::translate(glm::mat4(1.0f), glm::vec3{skeleton.mEntries[i].mLocalPos.x, skeleton.mEntries[i].mLocalPos.y, skeleton.mEntries[i].mLocalPos.z}) *
+                                 glm::toMat4(glm::quat{skeleton.mEntries[i].mLocalQuat.w, skeleton.mEntries[i].mLocalQuat.x, skeleton.mEntries[i].mLocalQuat.y, skeleton.mEntries[i].mLocalQuat.z});
+        ubo->baseTransforms[i] = ubo->boneTransforms[i];
+        for (size_t j = 0; j < header.mBoneCount; ++j)
+        {
+            if (((uint64_t *)(cspkBuf))[j] == skeleton.mEntries[i].mJointName.mCrc64)
+            {
+                float length = sqrtf(skeleton.mEntries[i].mLocalPos.x * skeleton.mEntries[i].mLocalPos.x + skeleton.mEntries[i].mLocalPos.y * skeleton.mEntries[i].mLocalPos.y +
+                                     skeleton.mEntries[i].mLocalPos.z * skeleton.mEntries[i].mLocalPos.z);
+                ubo->boneTransforms[i] =
+                    glm::translate(glm::mat4(1.0f), glm::vec3{currentSamples[j].v.x * length, currentSamples[j].v.y * length, currentSamples[j].v.z * length}) * glm::toMat4(currentSamples[j].q);
+                printf("%d [%f,%f,%f] [%f,%f,%f]\n", i, ubo->boneTransforms[i][3][0], ubo->boneTransforms[i][3][1], ubo->boneTransforms[i][3][2], skeleton.mEntries[i].mLocalPos.x,
+                       skeleton.mEntries[i].mLocalPos.y, skeleton.mEntries[i].mLocalPos.z);
+                break;
+            }
+        }
+
+        if (i == 177)
+        {
+            Matrix<4, 4> *mat = (Matrix<4, 4> *)(&ubo->boneTransforms[i]);
+            glm::mat4x4 x = glm::translate(glm::mat4(1.0f), glm::vec3{skeleton.mEntries[i].mLocalPos.x, skeleton.mEntries[i].mLocalPos.y, skeleton.mEntries[i].mLocalPos.z}) *
+                            glm::toMat4(glm::quat{skeleton.mEntries[i].mLocalQuat.w, skeleton.mEntries[i].mLocalQuat.x, skeleton.mEntries[i].mLocalQuat.y, skeleton.mEntries[i].mLocalQuat.z});
+            Matrix<4, 4> *mat2 = (Matrix<4, 4> *)(&x);
+        }
+    }
+    for (size_t i = 0; i < skeleton.mEntries.size(); ++i)
+    {
+        if (skeleton.mEntries[i].mParentIndex >= 0)
+        {
+            assert(skeleton.mEntries[i].mParentIndex < i);
+            ubo->boneTransforms[i] = ubo->boneTransforms[skeleton.mEntries[i].mParentIndex] * ubo->boneTransforms[i];
+            ubo->baseTransforms[i] = ubo->baseTransforms[skeleton.mEntries[i].mParentIndex] * ubo->baseTransforms[i];
+            // printf("%ld [%f,%f,%f]\n", i, ubo->baseTransforms[i][3][0], ubo->baseTransforms[i][3][1], ubo->baseTransforms[i][3][2]);
+        }
+    }
+
+    delete[] currentSamples;
+    delete[] previousSamples;
 
     return VkResult::VK_SUCCESS;
 }

@@ -1,81 +1,81 @@
 #include <cerrno>
 #include <cstdio>
 #include <ttc/core/gui.hpp>
+#include <ttc/render/vulkan.hpp>
+#include <ttc/render/vulkan2.hpp>
+#include <tth/animation/animation.hpp>
 #include <tth/convert/asset.hpp>
 #include <tth/core/any.hpp>
 #include <tth/core/log.hpp>
-#include <tth/meta/animation/animation.hpp>
-#include <tth/meta/container/dcarray.hpp>
-#include <tth/meta/container/map.hpp>
-#include <tth/meta/container/sarray.hpp>
-#include <tth/meta/container/set.hpp>
-#include <tth/meta/crc64/crc64.hpp>
-#include <tth/meta/d3dmesh/d3dmesh.hpp>
-#include <tth/meta/linalg/vector.hpp>
-#include <tth/meta/meta.hpp>
-#include <tth/meta/skeleton/skeleton.hpp>
+#include <tth/d3dmesh/d3dmesh.hpp>
+#include <tth/skeleton/skeleton.hpp>
 
 using namespace TTH;
 
 int main(void)
 {
+    /*
+
+    Renderer renderer;
+
+    Stream streamMesh = Stream("/home/asil/Documents/decryption/TelltaleDevTool/cipherTexts/d3dmesh/sk61_javier_bodyLower.d3dmesh", "rb");
+    streamMesh.SeekMetaHeaderEnd();
+
+    Stream streamAnimation = Stream("/home/asil/Documents/decryption/TelltaleDevTool/cipherTexts/animation/sk61_javierAction_toStandA.anm", "rb");
+    streamAnimation.SeekMetaHeaderEnd();
+
+    Stream streamSkeleton = Stream("/home/asil/Documents/decryption/TelltaleDevTool/cipherTexts/skl/sk61_javier.skl", "rb");
+    streamSkeleton.SeekMetaHeaderEnd();
+
+    renderer.d3dmesh.Read(streamMesh, false);
+    renderer.animation.Read(streamAnimation, false);
+    renderer.skeleton.Read(streamSkeleton, false);
+
+    renderer.VulkanInit();
+
+    SDL_Event sdlEvent;
+    do
+    {
+        do
+        {
+        } while (SDL_GetWindowFlags(renderer.window) & SDL_WINDOW_MINIMIZED); // Does not work
+        renderer.DrawFrame();
+        SDL_PollEvent(&sdlEvent);
+    } while (sdlEvent.type != SDL_EVENT_QUIT);
+
+    vkDeviceWaitIdle(renderer.device);
+
+    return 0;
+    */
+
     return run();
 
     Stream stream = Stream("/home/asil/Documents/decryption/TelltaleDevTool/cipherTexts/skl/sk61_javier.skl", "rb");
     stream.SeekMetaHeaderEnd();
     Skeleton skeleton;
-    skeleton.Read(stream, false);
+    skeleton.Create();
+    stream.Read(skeleton, false);
 
-    Animation animation[4];
-    {
-        Stream streamAnimation = Stream("/home/asil/Documents/decryption/TelltaleDevTool/cipherTexts/animation/sk61_javierAction_toStandA.anm", "rb");
-        streamAnimation.SeekMetaHeaderEnd();
-        animation[0].Read(streamAnimation, false);
-    }
-
-    {
-        Stream streamAnimation = Stream("/home/asil/Documents/decryption/TelltaleDevTool/cipherTexts/animation/sk61_javier_walkTenseAimPistol.anm", "rb");
-        streamAnimation.SeekMetaHeaderEnd();
-        animation[1].Read(streamAnimation, false);
-    }
-
+    Animation animation;
+    animation.Create();
     {
         Stream streamAnimation = Stream("/home/asil/Documents/decryption/TelltaleDevTool/cipherTexts/animation/sk61_javierStandA_toSit.anm", "rb");
         streamAnimation.SeekMetaHeaderEnd();
-        animation[2].Read(streamAnimation, false);
+        streamAnimation.Read(animation, false);
     }
 
-    {
-        Stream streamAnimation = Stream("/home/asil/Documents/decryption/TelltaleDevTool/cipherTexts/animation/sk61_javierSlide.anm", "rb");
-        streamAnimation.SeekMetaHeaderEnd();
-        animation[3].Read(streamAnimation, false);
-    }
-
-    D3DMesh mesh[4];
+    D3DMesh mesh;
+    mesh.Create();
     {
         Stream streamMesh = Stream("/home/asil/Documents/decryption/TelltaleDevTool/cipherTexts/d3dmesh/sk61_javier_bodyLower.d3dmesh", "rb");
         streamMesh.SeekMetaHeaderEnd();
-        mesh[0].Read(streamMesh, false);
+        streamMesh.Read(mesh, false);
     }
 
-    {
-        Stream streamMesh = Stream("/home/asil/Documents/decryption/TelltaleDevTool/cipherTexts/d3dmesh/sk61_javier_bodyUpper.d3dmesh", "rb");
-        streamMesh.SeekMetaHeaderEnd();
-        mesh[1].Read(streamMesh, false);
-    }
+    skeleton.Destroy();
+    animation.Destroy();
+    mesh.Destroy();
 
-    {
-        Stream streamMesh = Stream("/home/asil/Documents/decryption/TelltaleDevTool/cipherTexts/d3dmesh/sk61_javier_eyesMouth.d3dmesh", "rb");
-        streamMesh.SeekMetaHeaderEnd();
-        mesh[2].Read(streamMesh, false);
-    }
-
-    {
-        Stream streamMesh = Stream("/home/asil/Documents/decryption/TelltaleDevTool/cipherTexts/d3dmesh/sk61_javier_head.d3dmesh", "rb");
-        streamMesh.SeekMetaHeaderEnd();
-        mesh[3].Read(streamMesh, false);
-    }
-
-    errno_t err = ExportAsset("assimpTWD.glb", skeleton, animation, mesh, 4, 4);
+    errno_t err = ExportAsset("assimpTWD.glb", skeleton, &animation, &mesh, 1, 1);
     return 0;
 }

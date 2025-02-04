@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.22)
 project(TelltaleChimera)
 
-set(CMAKE_BUILD_TYPE Release)
+set(CMAKE_BUILD_TYPE Debug)
 set (CMAKE_CXX_STANDARD 23)
 
 set(CMAKE_CXX_FLAGS_DEBUG "-g")
@@ -18,9 +18,16 @@ else()
     set(TTC_TARGET_ARCH win32)
 endif()
 
+
 add_executable(chimera)
 add_subdirectory(src)
 add_subdirectory(extern)
+
+if(CMAKE_BUILD_TYPE STREQUAL "Debug")
+    target_compile_definitions(chimera PRIVATE DEBUG=1)
+else()
+    target_compile_definitions(chimera PRIVATE RELEASE=1)
+endif()
 
 
 

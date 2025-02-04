@@ -547,6 +547,7 @@ int run()
     std::vector<TTH::Animation> animationList;
     std::vector<TTH::D3DMesh> d3dmeshList;
     TTH::Skeleton skeleton;
+    skeleton.Create();
     const char *conversionResult = "\0";
 
     // Main loop
@@ -611,16 +612,18 @@ int run()
                     if (memcmp(c, ".d3dmesh", sizeof(".d3dmesh")) == 0)
                     {
                         d3dmeshList.resize(d3dmeshList.size() + 1);
-                        d3dmeshList[d3dmeshList.size() - 1].Read(stream, false);
+                        d3dmeshList[d3dmeshList.size() - 1].Create();
+                        stream.Read(d3dmeshList[d3dmeshList.size() - 1], false);
                     }
                     else if (memcmp(c, ".skl", sizeof(".skl")) == 0)
                     {
-                        skeleton.Read(stream, false);
+                        stream.Read(skeleton, false);
                     }
                     else if (memcmp(c, ".anm", sizeof(".anm")) == 0)
                     {
                         animationList.resize(animationList.size() + 1);
-                        animationList[animationList.size() - 1].Read(stream, false);
+                        animationList[animationList.size() - 1].Create();
+                        stream.Read(animationList[animationList.size() - 1], false);
                     }
                 }
             }
@@ -628,10 +631,10 @@ int run()
             for (std::vector<TTH::D3DMesh>::iterator it = d3dmeshList.begin(); it != d3dmeshList.end();)
             {
 
-                ImGui::Text("%s", it->mName.c_str());
+                ImGui::Text("%s", "it->mName.c_str()");
                 ImGui::SameLine();
                 char buttonCode[128];
-                snprintf(buttonCode, sizeof(buttonCode), "Remove##%s", it->mName.c_str());
+                snprintf(buttonCode, sizeof(buttonCode), "Remove##%s", "it->mName.c_str()");
                 if (ImGui::Button(buttonCode))
                 {
                     d3dmeshList.erase(it);
@@ -644,10 +647,10 @@ int run()
 
             for (std::vector<TTH::Animation>::iterator it = animationList.begin(); it != animationList.end();)
             {
-                ImGui::Text("%" PRIX64, it->mName.mCrc64);
+                ImGui::Text("%" PRIX64, it->GetTypeCRC64());
                 ImGui::SameLine();
                 char buttonCode[128];
-                snprintf(buttonCode, sizeof(buttonCode), "Remove##%" PRIX64, it->mName.mCrc64);
+                snprintf(buttonCode, sizeof(buttonCode), "Remove##%" PRIX64, it->GetTypeCRC64());
 
                 if (ImGui::Button(buttonCode))
                 {
@@ -659,14 +662,14 @@ int run()
                 }
             }
 
-            if (!skeleton.mEntries.empty())
+            if (skeleton.GetBoneCount())
             {
                 ImGui::Text("Skeleton imported");
             }
 
             if (ImGui::Button("Convert"))
             {
-                if (!skeleton.mEntries.empty())
+                if (skeleton.GetBoneCount())
                 {
 
                     char resultPath[1024];
@@ -710,6 +713,16 @@ int run()
         }
     }
 
+    for (std::vector<TTH::D3DMesh>::iterator it = d3dmeshList.begin(); it != d3dmeshList.end();)
+    {
+        it->Destroy();
+    }
+    for (std::vector<TTH::Animation>::iterator it = animationList.begin(); it != animationList.end();)
+    {
+        it->Destroy();
+    }
+
+    skeleton.Destroy();
     // Cleanup
     err = vkDeviceWaitIdle(g_Device);
     check_vk_result(err);

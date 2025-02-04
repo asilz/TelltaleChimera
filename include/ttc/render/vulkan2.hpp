@@ -1,6 +1,11 @@
+#pragma once
+
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_vulkan.h>
 #include <array>
+#include <tth/animation/animation.hpp>
+#include <tth/d3dmesh/d3dmesh.hpp>
+#include <tth/skeleton/skeleton.hpp>
 #include <vector>
 #include <vulkan/vulkan.h>
 
@@ -16,6 +21,10 @@ struct Renderer
     static constexpr uint32_t MAX_FRAMES_IN_FLIGHT = 2;
 
     float time = 0.0f;
+
+    TTH::D3DMesh d3dmesh;
+    TTH::Skeleton skeleton;
+    TTH::Animation animation;
 
     SDL_Window *window = nullptr;
 
@@ -77,7 +86,9 @@ struct Renderer
     VkResult CreateGraphicsPipeline();
     VkResult CreateBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, VkBuffer &buffer, VkDeviceMemory &bufferMemory);
     VkResult CreateVertexBuffers();
+    VkResult CreateVertexBuffersD3D();
     VkResult CreateIndexBuffer();
+    VkResult CreateIndexBufferD3D();
     VkResult CreateUniformBuffers();
     VkResult UpdateUniformBuffer(uint32_t currentImage);
     VkResult CopyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size);
@@ -85,6 +96,7 @@ struct Renderer
     VkResult CreateDescriptorSetLayout();
     VkResult CreateDescriptorPool();
     VkResult CreateDescriptorSets();
+    VkResult CreateUniformBoneBuffers();
     VkResult CreateTextureImage();
     VkResult CreateDepthResources();
     VkFormat FindSupportedFormat(const std::vector<VkFormat> &candidates, VkImageTiling tiling, VkFormatFeatureFlags features);
