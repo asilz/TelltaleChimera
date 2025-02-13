@@ -29,6 +29,12 @@ else()
     target_compile_definitions(chimera PRIVATE RELEASE=1)
 endif()
 
+set (USE_ADDRESS_SANITIZER OFF CACHE BOOL "Should the Address Sanitizer tool be enabled?")
+if (USE_ADDRESS_SANITIZER)
+  target_compile_options(chimera PRIVATE -fsanitize=address)
+  target_link_options(chimera PRIVATE -fsanitize=address)
+endif()
+
 
 
 target_compile_options(chimera PRIVATE -Wall)
